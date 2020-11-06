@@ -134,5 +134,3 @@ class Server:
       selectedElection['config']['maxVotes'] = maxVotes
     else:
       raise Exception('Election not found')
-
-#test
