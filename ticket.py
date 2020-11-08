@@ -51,10 +51,16 @@ class Server:
     if (len(candidates) != len(candidateSet)):
       raise Exception('There cannot be a duplicated candidate')
 
+    votes = {}
+    for candidate in candidates:
+      votes[candidate]: 0
+
     electionID = str(uuid4())
     election = {
       'name': name,
       'candidates': candidates,
+      'votes': votes,
+      'total': 0,
       'status': ELECTION_NOT_STARTED,
       'published': False,
       'config': {
