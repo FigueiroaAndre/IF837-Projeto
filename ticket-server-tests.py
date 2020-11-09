@@ -83,6 +83,9 @@ def test_createElection_ElectionsSuccessfullyCreated():
     electionFromServer = electionsFromServer[election['id']]
     assert electionFromServer['name'] == election['name'], 'Name of election does not match'
     assert electionFromServer['candidates'] == election['candidates'], 'Candidates of election does not match'
+    for candidate in electionFromServer['candidates']:
+      assert electionFromServer['votes'][candidate] == 0, 'There is a candidate initialized with more than 0 votes'
+    assert electionFromServer['total'] == 0, 'The counter of voutes have started with more than 0 votes'
     assert electionFromServer['status'] == ticket.ELECTION_NOT_STARTED, f'The default value of field "status" should be {ticket.ELECTION_NOT_STARTED}'
     assert not electionFromServer['published'], 'The default value of field "published" should be False'
     assert electionFromServer['config']['duration'] == ticket.TIME_MINUTE, f'The default value of field "config.duration" should be {ticket.TIME_MINUTE}'
@@ -141,3 +144,35 @@ def test_configureElection_ModifiesConfigurationOfUnstartedElection():
   assert election['config']['duration'] == ticket.TIME_DAY, 'Election field "config.duration" does not match the configured value'
   assert election['config']['maxVotes'] == 500, 'Election field "config.maxVotes" does not match the configured value'
 
+def test_deleteElection_DeleteAnElection():
+  electionID = server.createElection('election',['c1','c2'])
+  server.deleteElection(electionID)
+  assert not server.electionExists(electionID), 'Election should have been deleted'
+
+def test_deleteElection_TriesToDeleteAnActiveElection():
+  electionID = server.createElection('election',['c1','c2'])
+  server.startElection(electionID)
+  try:
+    server.deleteElection(electionID)
+    assert False, 'Should not be possible to delete an active election'
+  except Exception as err:
+    assert err.args[ERROR_MESSAGE_INDEX] == 'Cannot delete an active election'
+
+# TODO: Make test to validate that is possible to delete a finished election
+
+def test_startElection_StartAnUnstartedElection():
+  electionID = server.createElection('election',['c1','c2'])
+  server.startElection(electionID)
+  election = server.getElection(electionID)
+  assert election['status'] == ticket.ELECTION_STARTED, 'Election status is not ELECTION_STARTED'
+
+def test_startElection_TriesToStartAnElectionThatAlreadyHaveStarted():
+  electionID = server.createElection('election',['c1','c2'])
+  server.startElection(electionID)
+  try:
+    server.startElection(electionID)
+    assert False, 'Should not be possible to start an election that have already started'
+  except Exception as err:
+    assert err.args[ERROR_MESSAGE_INDEX] == 'It is not possible to start an election that have already been started'
+
+# TODO: Make test to validate that is not possible to start an election that have already finished
