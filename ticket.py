@@ -53,7 +53,7 @@ class Server:
 
     votes = {}
     for candidate in candidates:
-      votes[candidate]: 0
+      votes[candidate] = 0
 
     electionID = str(uuid4())
     election = {
@@ -140,3 +140,35 @@ class Server:
       selectedElection['config']['maxVotes'] = maxVotes
     else:
       raise Exception('Election not found')
+
+
+  def deleteElection(self, electionID):
+    """
+    Delete an Election that have not started or that have already finished
+
+    Parameters:
+    electionID (str): Election ID
+    """
+    electionData = self.getElection(electionID)
+    if electionData['status'] == ELECTION_STARTED:
+      raise Exception('Cannot delete an active election')
+    else:
+      del self.__elections[electionID]
+
+
+  def startElection(self, electionID):
+    """
+    Start an unstarted election
+
+    Parameters:
+    electionID (str): Election ID
+    """
+    # if self.electionExists(electionID)
+    electionData = self.getElection(electionID)
+
+    if electionData['status'] == ELECTION_NOT_STARTED:
+      self.__elections[electionID]['status'] = ELECTION_STARTED
+    elif electionData['status'] == ELECTION_STARTED:
+      raise Exception('It is not possible to start an election that have already been started')
+    elif electionData['status'] == ELECTION_FINISHED:
+      raise Exception('It is not possible to start a finished election')
