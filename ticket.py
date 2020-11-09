@@ -16,7 +16,7 @@ class Server:
   def __init__(self):
     self.__elections = {}
     self.__electionsUsers = []
-    self.__users = []
+    self.__users = {}
 
   def createElection(self, name, candidates, duration=TIME_MINUTE, maxVotes=None):
     """
@@ -74,10 +74,10 @@ class Server:
 
   def getElections(self):
     """
-    Returns the list of elections
+    Returns an object with info of elections
 
     Returns:
-    list: List of elections
+    Dict: Dictionary of Elections
     """
     elections = deepcopy(self.__elections)
     return elections
@@ -172,3 +172,80 @@ class Server:
       raise Exception('It is not possible to start an election that have already been started')
     elif electionData['status'] == ELECTION_FINISHED:
       raise Exception('It is not possible to start a finished election')
+
+
+  def getUsers(self):
+    """
+    Returns an object with info of users
+
+    Returns:
+    Dict: Dictionary of users
+    """
+    users = deepcopy(self.__users)
+    return users
+
+
+  def userExists(self, userID):
+    """
+    Return if user exists or not
+
+    Parameters:
+    userID (str): user ID
+    """
+    if type(userID) is not str:
+      raise TypeError('Arg userID must be a string')
+
+    try:
+      self.__users[userID]
+      return True
+    except:
+      return False
+
+
+  def getUser(self, userID):
+    """
+    Returns the user of specified id
+
+    Parameters:
+    userID (str): user ID
+
+    Returns:
+    obj: user with specified id
+    """
+    if self.userExists(userID):
+      selecteduser = deepcopy(self.__users[userID])
+      return selecteduser
+    else:
+      raise Exception('User not found')
+
+
+  def registerUser(self, name, customID=None):
+    """
+    Register an user into the system
+
+    Parameters:
+    name (str): Name of the user
+    customID (str): uses an customID from the application to represents the userID, defaults to None (the protocol creates a uniqueID)
+
+    Returns:
+    str: ID of the registered User
+    """
+    if type(name) is not str:
+      raise TypeError('Arg name must be a string')
+    if not (type(customID) is str or customID is None):
+      raise TypeError('Arg customID must be string or None')
+
+    userID = ''
+    if customID is None:
+      userID = str(uuid4())
+    else:
+      userID = customID
+      if self.userExists(customID):
+        raise Exception(f'An user with id {customID} already Exists')
+
+    user = {
+      'name': name
+    }
+    self.__users[userID] = user
+    return userID
+

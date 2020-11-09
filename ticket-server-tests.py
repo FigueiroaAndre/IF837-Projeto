@@ -1,3 +1,4 @@
+from typing import Type
 import pytest
 import ticket
 from uuid import uuid4
@@ -176,3 +177,21 @@ def test_startElection_TriesToStartAnElectionThatAlreadyHaveStarted():
     assert err.args[ERROR_MESSAGE_INDEX] == 'It is not possible to start an election that have already been started'
 
 # TODO: Make test to validate that is not possible to start an election that have already finished
+
+def test_registerUser_NameIsNotString():
+  try:
+    server.registerUser(7)
+    assert False, 'registerUser did not raise an TypeError'
+  except TypeError as err:
+    assert err.args[ERROR_MESSAGE_INDEX] == 'Arg name must be a string'
+
+def test_registerUser_UserSuccessfullyRegistered():
+  userID = server.registerUser('user')
+  assert server.userExists(userID), 'User should have been successfully registered'
+  user = server.getUser(userID)
+  assert user['name'] == 'user', 'Name of user does not match'
+
+def test_registerUser_UserSuccessfullyRegisteredWithCustomId():
+  customID = '111.111.111-11'
+  server.registerUser('user',customID)
+  assert server.userExists(customID), 'User should have been successfully registered'
