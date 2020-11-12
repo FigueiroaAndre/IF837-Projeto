@@ -1,6 +1,7 @@
 from uuid import uuid4
 from copy import deepcopy
 from random import randrange #TODO: Remove when cryptography implementation be ready
+import json
 import socket
 import _thread
 import time
@@ -12,6 +13,15 @@ ELECTION_FINISHED = 2
 TIME_MINUTE = 60
 TIME_HOUR = 3600
 TIME_DAY = 86400
+STATE_START_CONN = 0
+STATE_FINISHING = 1
+STATE_CLIENT_SEND_ELECTION_ID = 2
+STATE_CLIENT_RECV_CANDIDATES_ERR = 3
+STATE_CLIENT_SEND_VOTE = 4
+STATE_SERVER_WAIT_RECV_ELECTION_ID = 2
+STATE_SERVER_WAIT_TCP_CLOSE = 3
+STATE_SERVER_WAIT_RECV_VOTE = 4
+AVAILABLE_STATES = [0,1,2,3,4]
 
 class SecurityClass:
   def keyGenerator(self):
@@ -60,18 +70,118 @@ class SecurityClass:
     return plaintext
 
 
+class ProtocolStateMachineHandler:
+  def __init__(self, type):
+    """
+    State Machine of Protocol
+
+    Parameters:
+    type ('client' | 'server'): Type of the machine state
+    """
+    if not (type == 'client' or type == 'server'):
+      raise Exception('type must be either "client" or "server"')
+
+    self.type = type
+    self.state = STATE_START_CONN
+
+  def expectedNextStates(self):
+    """
+    Return a list of the expected next states
+
+    Returns:
+    list: List with the expected next states
+    """
+    expectedNextStates = []
+    if self.type == 'client':
+      if self.state == STATE_START_CONN:
+        expectedNextStates = [STATE_FINISHING, STATE_CLIENT_SEND_ELECTION_ID]
+      elif self.state == STATE_CLIENT_SEND_ELECTION_ID:
+        expectedNextStates = [STATE_CLIENT_SEND_VOTE,STATE_CLIENT_RECV_CANDIDATES_ERR]
+      elif self.state == STATE_CLIENT_RECV_CANDIDATES_ERR or self.state == STATE_CLIENT_SEND_VOTE:
+        expectedNextStates = [STATE_FINISHING]
+    else:
+      if self.state == STATE_START_CONN:
+        expectedNextStates = [STATE_FINISHING, STATE_SERVER_WAIT_RECV_ELECTION_ID]
+      elif self.state == STATE_SERVER_WAIT_RECV_ELECTION_ID:
+        expectedNextStates = [STATE_SERVER_WAIT_TCP_CLOSE, STATE_SERVER_WAIT_RECV_VOTE]
+      elif self.state == STATE_SERVER_WAIT_RECV_VOTE:
+        expectedNextStates = [STATE_SERVER_WAIT_TCP_CLOSE]
+      elif self.state == STATE_SERVER_WAIT_TCP_CLOSE:
+        expectedNextStates = [STATE_FINISHING]
+    return expectedNextStates
+
+  def changeState(self, state):
+    """
+    Changes de state of the state machine
+
+    Parameters:
+    state (int): The target state
+    """
+    if state in AVAILABLE_STATES:
+      if state in self.expectedNextStates():
+        self.state = state
+      else:
+        raise Exception(f'It is not possible change from {self.state} to {state}')
+    else:
+      raise Exception('Invalid State')
+
+
+class Package:
+  def __init__(self, userID=None, ticket=None, cmd=None, data=None, dumpedPackage=None):
+    """
+    Create a Ticket Package. There are 2 ways of creating a package
+    - Specifying all the fields of the package: id, ticket, cmd, data
+    - Passing a dumped package
+
+    Parameters:
+    userID (str): userID field, (defaults to None, if None dumpedObj must be specified)
+    ticket (str): ticket field, (defaults to None, if None dumpedObj must be specified)
+    cmd (str): cmd field, (defaults to None, if None dumpedObj must be specified)
+    data (str): data field, (defaults to None, if None dumpedObj must be specified)
+    dumpedPackage (str): dumped version of a Package
+    """
+    if dumpedPackage is None:
+      if userID is None or ticket is None or cmd is None or data is None:
+        raise Exception('If dumpedObj is not defined, all other fields should be defined')
+
+      self.content = {
+        'id': userID,
+        'ticket': ticket,
+        'cmd': cmd,
+        'data': data
+      }
+    else:
+      self.content = json.loads(dumpedPackage)
+
+
+  def dump(self):
+    """
+    Returns a dumped version of the package
+
+    Returns:
+    str: Dumped version of the package
+    """
+    dumpedPackage = json.dumps(self.content)
+    return dumpedPackage
+
+
 class Server(SecurityClass):
   def __init__(self):
     self.__elections = {}
     self.__electionsUsersLink = []
     self.__users = {}
+    self.__tcpServerRunning = False
+
+  def __del__(self):
+    if self.__tcpServerRunning:
+      self.__tcp.close()
 
   def createElection(self, name, candidates, duration=TIME_MINUTE, maxVotes=None):
     """
     Create an election and returns it's ID
 
     Parameters:
-    name  (str): Name of the election
+    name (str): Name of the election
     candidates (list of str): The list of candidates
     duration (int): Duration of the election in seconds, defaults to 1 minute
     maxVotes (int): Max number of votes, defaults to None (unlimited)
@@ -342,6 +452,7 @@ class Server(SecurityClass):
       self.__electionsUsersLink.append(electionUserLink)
       #TODO: Complete me
 
+
   def generateTicket(self):
     """
     Generate a new Ticket
@@ -354,3 +465,57 @@ class Server(SecurityClass):
     randomValue = str(uuid4())
     ticket = self.encrypt(randomValue, randomKey)
     return ticket
+
+
+  def startServer(self, port=3333, host='localhost'):
+    """
+    Initialize the TCP Server.
+
+    Parameters:
+    port (int): Port used in the TCP Connection, defaults to 3333
+    host (str): IP Address of the server, defaults to 'localhost'
+    """
+    if self.__tcpServerRunning:
+      raise Exception('TCP server has already started')
+
+    self.__port = port
+    self.__host = host
+    self.__tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.__tcp.bind((host,port))
+    self.__tcpServerRunning = True
+    self.__tcp.listen(1)
+    print('STARTING LOOP')
+    _thread.start_new_thread(self.__serverLoop, tuple([]))
+
+
+  def stopServer(self):
+    """
+    Stop the TCP Server.
+    """
+    self.__tcpServerRunning = False
+    self.__tcp.close()
+
+
+  def __serverLoop(self):
+    """
+    The loop of the server. While alive, keeps listening for new requests while __tcpServerRunning is True
+    """
+    print(f'LOOP STARTED - TCP SERVER IS {self.__tcpServerRunning}')
+    while self.__tcpServerRunning:
+      connection, client = self.__tcp.accept()
+      _thread.start_new_thread(self.__handleClient, tuple([connection, client]))
+
+
+  def __handleClient(self, connection, client):
+    """
+    This function is responsible for handling the communication with each client
+
+    Parameters:
+    connection (socket): The connection with the client
+    client (any): The info of the client
+    """
+    #TODO: implement me
+    print(f'STARTED connection with {client}')
+    data = connection.recv(1024)
+    print(data.decode())
+

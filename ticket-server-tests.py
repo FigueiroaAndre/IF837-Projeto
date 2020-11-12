@@ -214,3 +214,12 @@ def test_subscribe_SameUserCannotBeSubscribeMoreThanOnceIntoAnElection():
     assert err.args[ERROR_MESSAGE_INDEX] == 'This user has already subscribed in this election'
 
 #TODO: Make test to validate that is not possible to subscribe into an election that have already started
+def test_subscribe_TriesToSubscribeIntoAnElectionThatHaveAlreadyStarted():
+  electionID = server.createElection('election',['c1','c2'])
+  userID = server.registerUser('User')
+  server.startElection(electionID)
+  try:
+    server.subscribe(userID, electionID)
+    assert False, 'Should not be possible to subscribe to an election that have already started'
+  except Exception as err:
+    assert err.args[ERROR_MESSAGE_INDEX] == 'An user can only subscribe into an election that have not started.'
