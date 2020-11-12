@@ -1,5 +1,6 @@
 from uuid import uuid4
 from copy import deepcopy
+from random import randrange #TODO: Remove when cryptography implementation be ready
 import socket
 import _thread
 import time
@@ -12,10 +13,57 @@ TIME_MINUTE = 60
 TIME_HOUR = 3600
 TIME_DAY = 86400
 
-class Server:
+class SecurityClass:
+  def keyGenerator(self):
+    """
+    Generate a random key for encrypt and decrypt data
+
+    Returns:
+    str: A random key
+    """
+    #TODO: Update when the cryptography implementation be ready
+    key = 1 + randrange(9)
+    return key
+
+  def encrypt(self, plaintext, key):
+    """
+    Encrypt a message
+
+    Parameters:
+    plaintext (str): Message to be encrypted
+    key (str): Key for encrypt the message
+
+    Returns:
+    str: Encrypted message
+    """
+    ciphertext = ''
+    for char in plaintext:
+      cipherchar = chr(ord(char) + key)
+      ciphertext = ciphertext + cipherchar
+    return ciphertext
+
+  def decrypt(self, ciphertext, key):
+    """
+    Decrypt a ciphertext
+
+    Parameters:
+    ciphertext (str): Ciphertext to be decrypted
+    key (str): Key for decrypt the message
+
+    Returns:
+    str: Encrypted message
+    """
+    plaintext = ''
+    for char in ciphertext:
+      plainchar = chr(ord(char) - key)
+      plaintext = plaintext + plainchar
+    return plaintext
+
+
+class Server(SecurityClass):
   def __init__(self):
     self.__elections = {}
-    self.__electionsUsers = []
+    self.__electionsUsersLink = []
     self.__users = {}
 
   def createElection(self, name, candidates, duration=TIME_MINUTE, maxVotes=None):
@@ -249,3 +297,60 @@ class Server:
     self.__users[userID] = user
     return userID
 
+
+  def getElectors(self, electionID):
+    """
+    Returns the electors of a specified election
+
+    Parameters:
+    electionID (str): Election ID
+
+    Returns:
+    list: list of userID subscribed to the specified election
+    """
+    if self.electionExists(electionID):
+      userList = []
+      for electionUserLink in self.__electionsUsersLink:
+        if electionUserLink['election'] == electionID:
+          userList.append(electionUserLink['user'])
+      return userList
+    else:
+      raise Exception('Election not found')
+
+
+  def subscribe(self, userID, electionID):
+    """
+    Subscribe an user into an election
+
+    Parameters:
+    userID (str): ID of the user
+    electionID (str): ID of the election
+    """
+    if self.electionExists(electionID) and self.userExists(userID):
+      if userID in self.getElectors(electionID):
+        raise Exception('This user has already subscribed in this election')
+      election = self.getElection(electionID)
+      if election['status'] != ELECTION_NOT_STARTED:
+        raise Exception('An user can only subscribe into an election that have not started.')
+
+      electionUserLink = {
+        'election': electionID,
+        'user': userID,
+        'ticket': self.generateTicket(),
+        'voted': False
+      }
+      self.__electionsUsersLink.append(electionUserLink)
+      #TODO: Complete me
+
+  def generateTicket(self):
+    """
+    Generate a new Ticket
+
+    Returns:
+    str: Ticket
+    """
+    #TODO: Update when cryptography be ready
+    randomKey = self.keyGenerator()
+    randomValue = str(uuid4())
+    ticket = self.encrypt(randomValue, randomKey)
+    return ticket

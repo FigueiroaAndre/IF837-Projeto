@@ -195,3 +195,22 @@ def test_registerUser_UserSuccessfullyRegisteredWithCustomId():
   customID = '111.111.111-11'
   server.registerUser('user',customID)
   assert server.userExists(customID), 'User should have been successfully registered'
+
+def test_subscribe_UserSuccessfullySubscribeUserIntoAnElection():
+  electionID = server.createElection('election',['c1','c2'])
+  userID = server.registerUser('User')
+  server.subscribe(userID, electionID)
+  electors = server.getElectors(electionID)
+  assert userID in electors, 'User have not been subscribed to the election'
+
+def test_subscribe_SameUserCannotBeSubscribeMoreThanOnceIntoAnElection():
+  electionID = server.createElection('election',['c1','c2'])
+  userID = server.registerUser('User')
+  server.subscribe(userID, electionID)
+  try:
+    server.subscribe(userID, electionID)
+    assert False, 'Should not be possible to subscribe an user to an election more than once'
+  except Exception as err:
+    assert err.args[ERROR_MESSAGE_INDEX] == 'This user has already subscribed in this election'
+
+#TODO: Make test to validate that is not possible to subscribe into an election that have already started
