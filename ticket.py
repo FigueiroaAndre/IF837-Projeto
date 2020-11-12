@@ -12,6 +12,12 @@ TIME_MINUTE = 60
 TIME_HOUR = 3600
 TIME_DAY = 86400
 
+class Pacote:
+  def __init__(self, id = None, secret = None, command = None, data = None) :
+    self.ID = id
+    self.secret = secret
+    self.command = command
+    self.data = data
 class Server:
   def __init__(self):
     self.__elections = {}
