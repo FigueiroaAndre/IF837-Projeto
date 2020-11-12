@@ -4,18 +4,10 @@ import crypto
 import pickle 
 import sys 
 
-
 print("Socket created")
 HOST = ''                 # Symbolic name meaning all available interfaces
 PORT = 12000              # Arbitrary non-privileged port
 
-def sendPackage(package): # tentativa de envia todo o objeto
-   msg = pickle.dumps(package)
-   connectionSocket.send(msg)
-
-def receivePackage():
-   msg = pickle.loads(connectionSocket.recv(1024))
-   return msg
 
 package = ticket.Pacote()
 
@@ -36,9 +28,11 @@ while True:
     connectionSocket, addr = serverSocket.accept()
 
     package = connectionSocket.recv(1024).decode()
-    #package = receivePackage
+
+    print(package.id)
+
     decodedSentence = crypto.decryptMessage('PIZZA', package)
-    #sendPackage(decodedSentence)
-    connectionSocket.send(decodedSentence.encode())
+ 
+    connectionSocket.send(package.encode())
 
     connectionSocket.close()
