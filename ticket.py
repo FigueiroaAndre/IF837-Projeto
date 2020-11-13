@@ -1,6 +1,6 @@
 from uuid import uuid4
 from copy import deepcopy
-from random import randrange #TODO: Remove when cryptography implementation be ready
+from cryptography.fernet import Fernet
 import json
 import socket
 import _thread
@@ -31,8 +31,7 @@ class SecurityClass:
     Returns:
     str: A random key
     """
-    #TODO: Update when the cryptography implementation be ready
-    key = 1 + randrange(9)
+    key = Fernet.generate_key()
     return key
 
   def encrypt(self, plaintext, key):
@@ -44,12 +43,12 @@ class SecurityClass:
     key (str): Key for encrypt the message
 
     Returns:
-    str: Encrypted message
+    byte: Encrypted message
     """
-    ciphertext = ''
-    for char in plaintext:
-      cipherchar = chr(ord(char) + key)
-      ciphertext = ciphertext + cipherchar
+
+    f = Fernet(key)
+    ciphertext = f.encrypt(bytes(plaintext, 'utf-8'))
+
     return ciphertext
 
   def decrypt(self, ciphertext, key):
@@ -57,16 +56,14 @@ class SecurityClass:
     Decrypt a ciphertext
 
     Parameters:
-    ciphertext (str): Ciphertext to be decrypted
+    ciphertext (byte): Ciphertext to be decrypted
     key (str): Key for decrypt the message
 
     Returns:
-    str: Encrypted message
-    """
-    plaintext = ''
-    for char in ciphertext:
-      plainchar = chr(ord(char) - key)
-      plaintext = plaintext + plainchar
+    str: Decrypted message
+    """ 
+    f = Fernet(key)
+    plaintext = f.decrypt(ciphertext).decode("utf-8") 
     return plaintext
 
 
