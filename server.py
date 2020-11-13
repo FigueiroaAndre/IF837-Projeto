@@ -1,13 +1,27 @@
-import ticket
 import socket
-import crypto
-import pickle 
+import ticket
+import json
 import sys 
 
-print("Socket created")
 HOST = ''                 # Symbolic name meaning all available interfaces
 PORT = 12000              # Arbitrary non-privileged port
 
+def sendPackage(package, socket):
+    packageJSON = {'id': package.id, 'secret': package.secret, 'command': package.command, 'data': package.data} # a real dict.
+    data = json.dumps(packageJSON)
+    socket.send(bytes(data,encoding="utf-8"))
+    print('Package sended')
+
+def receivePackage(packageJSON, socket):
+    packageReceived = json.loads(packageJSON)
+
+    package.id = packageReceived['id']
+    package.secret = packageReceived['secret']
+    package.command = packageReceived['command']
+    package.data = packageReceived['data']
+
+    print('Package received')
+    return package
 
 package = ticket.Pacote()
 
@@ -27,12 +41,13 @@ while True:
 
     connectionSocket, addr = serverSocket.accept()
 
-    package = connectionSocket.recv(1024).decode()
-
+    packageJSON = connectionSocket.recv(1024).decode()
+    package = receivePackage(packageJSON, serverSocket)
+    
     print(package.id)
 
-    decodedSentence = crypto.decryptMessage('PIZZA', package)
+    #decodedSentence = crypto.decryptMessage('PIZZA', package)
  
-    connectionSocket.send(package.encode())
+    #connectionSocket.send(package.encode())
 
     connectionSocket.close()
